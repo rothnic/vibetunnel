@@ -9,11 +9,12 @@
 # build details including the IS_PRERELEASE_BUILD flag status.
 #
 # USAGE:
-#   ./scripts/build.sh [--configuration Debug|Release] [--sign]
+#   ./scripts/build.sh [--configuration Debug|Release] [--sign] [--arch arm64|x86_64]
 #
 # ARGUMENTS:
 #   --configuration <Debug|Release>  Build configuration (default: Release)
 #   --sign                          Sign the app after building (requires cert)
+#   --arch <arm64|x86_64>          Architecture to build (default: arm64)
 #
 # ENVIRONMENT VARIABLES:
 #   IS_PRERELEASE_BUILD=YES|NO      Sets pre-release flag in Info.plist
@@ -32,10 +33,11 @@
 #   - xcbeautify (optional, for prettier output)
 #
 # EXAMPLES:
-#   ./scripts/build.sh                           # Release build
-#   ./scripts/build.sh --configuration Debug     # Debug build
-#   ./scripts/build.sh --sign                    # Release build with signing
-#   IS_PRERELEASE_BUILD=YES ./scripts/build.sh   # Beta build
+#   ./scripts/build.sh                           # Release build (arm64)
+#   ./scripts/build.sh --configuration Debug     # Debug build (arm64)
+#   ./scripts/build.sh --sign                    # Release build with signing (arm64)
+#   ./scripts/build.sh --arch x86_64             # Release build for Intel
+#   IS_PRERELEASE_BUILD=YES ./scripts/build.sh   # Beta build (arm64)
 #
 # =============================================================================
 
@@ -49,6 +51,7 @@ BUILD_DIR="$MAC_DIR/build"
 # Default values
 CONFIGURATION="Release"
 SIGN_APP=false
+ARCH="arm64"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -61,9 +64,13 @@ while [[ $# -gt 0 ]]; do
             SIGN_APP=true
             shift
             ;;
+        --arch)
+            ARCH="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--configuration Debug|Release] [--sign]"
+            echo "Usage: $0 [--configuration Debug|Release] [--sign] [--arch arm64|x86_64]"
             exit 1
             ;;
     esac
@@ -72,7 +79,7 @@ done
 echo "Building VibeTunnel..."
 echo "Configuration: $CONFIGURATION"
 echo "Code signing: $SIGN_APP"
-echo "Architecture: ARM64 only"
+echo "Architecture: $ARCH"
 
 # Clean build directory only if it doesn't exist
 mkdir -p "$BUILD_DIR"
@@ -90,7 +97,7 @@ if [[ "${CI:-false}" == "true" ]] && [[ -f "$PROJECT_DIR/.xcode-ci-config.xcconf
     XCCONFIG_ARG="-xcconfig $PROJECT_DIR/.xcode-ci-config.xcconfig"
 fi
 
-# Build ARM64-only binary
+# Build the app for the specified architecture
 
 # Use Xcode's default derived data path to preserve Swift package resolution
 # Only use custom path if explicitly requested or in CI
@@ -112,28 +119,28 @@ fi
 
 # Check if xcbeautify is available
 if command -v xcbeautify &> /dev/null; then
-    echo "🔨 Building ARM64-only binary with xcbeautify..."
+    echo "🔨 Building $ARCH binary with xcbeautify..."
     xcodebuild \
         -project VibeTunnel.xcodeproj \
         -scheme VibeTunnel \
         -configuration "$CONFIGURATION" \
         $DERIVED_DATA_ARG \
-        -destination "platform=macOS,arch=arm64" \
+        -destination "platform=macOS,arch=$ARCH" \
         $XCCONFIG_ARG \
-        ARCHS="arm64" \
+        ARCHS="$ARCH" \
         ONLY_ACTIVE_ARCH=NO \
         $CODE_SIGN_ARGS \
         build | xcbeautify
 else
-    echo "🔨 Building ARM64-only binary (install xcbeautify for cleaner output)..."
+    echo "🔨 Building $ARCH binary (install xcbeautify for cleaner output)..."
     xcodebuild \
         -project VibeTunnel.xcodeproj \
         -scheme VibeTunnel \
         -configuration "$CONFIGURATION" \
         $DERIVED_DATA_ARG \
-        -destination "platform=macOS,arch=arm64" \
+        -destination "platform=macOS,arch=$ARCH" \
         $XCCONFIG_ARG \
-        ARCHS="arm64" \
+        ARCHS="$ARCH" \
         ONLY_ACTIVE_ARCH=NO \
         $CODE_SIGN_ARGS \
         build
